@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 Expedia, Inc.
+ * Copyright (C) 2019-2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,47 @@
  */
 package com.expediagroup.beekeeper.cleanup.path.hive;
 
-//import com.hotels.beeju.extensions.HiveMetaStoreJUnitExtension;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.thrift.TException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+@ExtendWith(MockitoExtension.class)
 public class HiveClientTest {
 
-  private static final String TARGET_UNPARTITIONED_TABLE = "ct_table_u_copy";
-  private static final String TARGET_PARTITIONED_TABLE = "ct_table_p_copy";
-  private static final String TARGET_UNPARTITIONED_MANAGED_TABLE = "ct_table_u_managed_copy";
-  private static final String TARGET_PARTITIONED_MANAGED_TABLE = "ct_table_p_managed_copy";
-  private static final String TARGET_PARTITIONED_VIEW = "ct_view_p_copy";
-  private static final String TARGET_UNPARTITIONED_VIEW = "ct_view_u_copy";
+  private static final String DATABASE = "some_db";
+  private static final String DROP_TABLE_NAME = "drop_table";
 
-//    public @Rule ExpectedSystemExit exit = ExpectedSystemExit.none();
-//    public @Rule TemporaryFolder temporaryFolder = new TemporaryFolder();
-//    public @Rule DataFolder dataFolder = new ClassDataFolder();
-//    public @Rule ThriftHiveMetaStoreJUnitRule sourceCatalog = new ThriftHiveMetaStoreJUnitRule(DATABASE);
-//    public @Rule ThriftHiveMetaStoreJUnitRule replicaCatalog = new ThriftHiveMetaStoreJUnitRule(DATABASE);
-//    public @Rule ServerSocketRule serverSocketRule = new ServerSocketRule();
+  @Mock private static HiveMetaStoreClient metaStoreClient;
+
+  @Test
+  public void typicalLiveDropTable() throws TException {
+    HiveClient hiveClient = new HiveClient(metaStoreClient, false);
+    boolean result = hiveClient.dropTable(DATABASE, DROP_TABLE_NAME);
+    verify(metaStoreClient).dropTable(DATABASE, DROP_TABLE_NAME);
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  public void failedLiveDropTable() throws TException {
+    HiveClient hiveClient = new HiveClient(metaStoreClient, false);
+    doThrow(new TException("error")).when(metaStoreClient).dropTable(DATABASE, DROP_TABLE_NAME);
+    boolean result = hiveClient.dropTable(DATABASE, DROP_TABLE_NAME);
+    assertThat(result).isFalse();
+  }
+
+  @Test
+  public void typicalDryRunDropTable() throws TException {
+    HiveClient hiveClient = new HiveClient(metaStoreClient, true);
+    boolean result = hiveClient.dropTable(DATABASE, DROP_TABLE_NAME);
+    verify(metaStoreClient, never()).dropTable(DATABASE, DROP_TABLE_NAME);
+    assertThat(result).isTrue();
+  }
 }

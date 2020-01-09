@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 Expedia, Inc.
+ * Copyright (C) 2019-2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,23 +21,23 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.EnumMap;
+import java.util.ArrayList;
 import java.util.List;
 
-import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestPropertySource;
@@ -45,7 +45,10 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.expediagroup.beekeeper.cleanup.path.PathCleaner;
+import com.expediagroup.beekeeper.cleanup.path.aws.S3PathCleaner;
+import com.expediagroup.beekeeper.cleanup.path.hive.HivePathCleaner;
 import com.expediagroup.beekeeper.core.model.EntityHousekeepingPath;
+import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import com.expediagroup.beekeeper.core.model.PathStatus;
 import com.expediagroup.beekeeper.core.repository.HousekeepingPathRepository;
 
@@ -65,10 +68,12 @@ class PagingCleanupServiceTest {
   private final String path1 = "s3://test/table/bar/test=1";
   private final String path2 = "hdfs://test/table/bar/test=1/var=1";
   private final String path3 = "s3://test/table/bar/test=1/var=2";
+  private final List<PathCleaner> pathCleaners = new ArrayList<>();
   private EntityHousekeepingPath entityPath1;
   private EntityHousekeepingPath entityPath2;
   private EntityHousekeepingPath entityPath3;
-  private @MockBean PathCleaner pathCleaner;
+  private @Mock HivePathCleaner hivePathCleaner;
+  private @Mock S3PathCleaner s3PathCleaner;
   private @Autowired HousekeepingPathRepository housekeepingPathRepository;
   private @Captor ArgumentCaptor<EntityHousekeepingPath> pathCaptor;
   private PagingCleanupService pagingCleanupService;
@@ -78,9 +83,9 @@ class PagingCleanupServiceTest {
     entityPath1 = createEntityHousekeepingPath(path1);
     entityPath2 = createEntityHousekeepingPath(path2);
     entityPath3 = createEntityHousekeepingPath(path3);
-    EnumMap<LifecycleEventType, PathCleaner> pcm = new EnumMap<>(LifecycleEventType.class);
-    pcm.put(LifecycleEventType.UNREFERENCED, pathCleaner);
-    pagingCleanupService = new PagingCleanupService(housekeepingPathRepository, pcm, 2, false);
+    pathCleaners.add(s3PathCleaner);
+    pathCleaners.add(hivePathCleaner);
+    pagingCleanupService = new PagingCleanupService(housekeepingPathRepository, pathCleaners, 2, false);
   }
 
   @Test
@@ -91,14 +96,14 @@ class PagingCleanupServiceTest {
 
     pagingCleanupService.cleanUp(Instant.now());
 
-    verify(pathCleaner, times(3)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(3)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2, path3);
+        .extracting("path")
+        .containsExactly(path1, path2, path3);
     assertOriginalObjectsAreUpdated();
 
     pagingCleanupService.cleanUp(Instant.now());
-    verifyNoMoreInteractions(pathCleaner);
+    verifyNoMoreInteractions(s3PathCleaner);
   }
 
   private void assertOriginalObjectsAreUpdated() {
@@ -121,10 +126,10 @@ class PagingCleanupServiceTest {
 
     pagingCleanupService.cleanUp(Instant.now());
 
-    verify(pathCleaner, times(2)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(2)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2);
+        .extracting("path")
+        .containsExactly(path1, path2);
   }
 
   @Test
@@ -136,10 +141,10 @@ class PagingCleanupServiceTest {
 
     pagingCleanupService.cleanUp(Instant.now());
 
-    verify(pathCleaner, times(2)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(2)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2);
+        .extracting("path")
+        .containsExactly(path1, path2);
   }
 
   @Test
@@ -153,29 +158,29 @@ class PagingCleanupServiceTest {
 
     pagingCleanupService.cleanUp(Instant.now());
 
-    verify(pathCleaner, times(2)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(2)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2);
-    verifyNoMoreInteractions(pathCleaner);
+        .extracting("path")
+        .containsExactly(path1, path2);
+    verifyNoMoreInteractions(s3PathCleaner);
   }
 
   @Test
   void pathCleanerException() {
     doThrow(new RuntimeException("Error"))
-      .doNothing()
-      .when(pathCleaner)
-      .cleanupPath(any(EntityHousekeepingPath.class));
+        .doNothing()
+        .when(s3PathCleaner)
+        .cleanupPath(any(EntityHousekeepingPath.class));
 
     housekeepingPathRepository.save(entityPath1);
     housekeepingPathRepository.save(entityPath2);
 
     pagingCleanupService.cleanUp(Instant.now());
 
-    verify(pathCleaner, times(2)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(2)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2);
+        .extracting("path")
+        .containsExactly(path1, path2);
 
     List<EntityHousekeepingPath> result = housekeepingPathRepository.findAll();
     assertThat(result.size()).isEqualTo(2);
@@ -192,19 +197,18 @@ class PagingCleanupServiceTest {
 
   @Test
   void typicalDryRunWithPaging() {
-    EnumMap<LifecycleEventType, PathCleaner> pcm = new EnumMap<>(LifecycleEventType.class);
-    pcm.put(LifecycleEventType.UNREFERENCED, pathCleaner);
-    pagingCleanupService = new PagingCleanupService(housekeepingPathRepository, pcm, 2, true);
+    when(s3PathCleaner.getLifecycleEventType()).thenReturn(LifecycleEventType.UNREFERENCED);
+    pagingCleanupService = new PagingCleanupService(housekeepingPathRepository, pathCleaners, 2, true);
     housekeepingPathRepository.save(entityPath1);
     housekeepingPathRepository.save(entityPath2);
     housekeepingPathRepository.save(entityPath3);
     List<EntityHousekeepingPath> beforeClean = housekeepingPathRepository.findAll();
 
     pagingCleanupService.cleanUp(Instant.now());
-    verify(pathCleaner, times(3)).cleanupPath(pathCaptor.capture());
+    verify(s3PathCleaner, times(3)).cleanupPath(pathCaptor.capture());
     assertThat(pathCaptor.getAllValues())
-      .extracting("path")
-      .containsExactly(path1, path2, path3);
+        .extracting("path")
+        .containsExactly(path1, path2, path3);
 
     List<EntityHousekeepingPath> afterClean = housekeepingPathRepository.findAll();
     assertThat(afterClean.get(0)).isEqualToComparingFieldByFieldRecursively(beforeClean.get(0));
@@ -214,16 +218,16 @@ class PagingCleanupServiceTest {
 
   private EntityHousekeepingPath createEntityHousekeepingPath(String path) {
     EntityHousekeepingPath housekeepingPath = new EntityHousekeepingPath.Builder()
-      .path(path)
-      .databaseName("database")
-      .tableName("table")
-      .pathStatus(PathStatus.SCHEDULED)
-      .creationTimestamp(localNow)
-      .modifiedTimestamp(localNow)
-      .modifiedTimestamp(localNow)
-      .cleanupDelay(Duration.parse("P3D"))
-      .cleanupAttempts(0)
-      .build();
+        .path(path)
+        .databaseName("database")
+        .tableName("table")
+        .pathStatus(PathStatus.SCHEDULED)
+        .creationTimestamp(localNow)
+        .modifiedTimestamp(localNow)
+        .modifiedTimestamp(localNow)
+        .cleanupDelay(Duration.parse("P3D"))
+        .cleanupAttempts(0)
+        .build();
     housekeepingPath.setCleanupTimestamp(localNow);
     return housekeepingPath;
   }

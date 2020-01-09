@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -31,20 +33,28 @@ import com.expediagroup.beekeeper.cleanup.path.PathCleaner;
 import com.expediagroup.beekeeper.cleanup.path.SentinelFilesCleaner;
 import com.expediagroup.beekeeper.core.error.BeekeeperException;
 import com.expediagroup.beekeeper.core.model.HousekeepingPath;
+import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import com.expediagroup.beekeeper.core.monitoring.TimedTaggable;
 
+@Component
 public class S3PathCleaner implements PathCleaner {
 
   private static final Logger log = LoggerFactory.getLogger(S3PathCleaner.class);
-  private final S3Client s3Client;
-  private final SentinelFilesCleaner sentinelFilesCleaner;
-  private final S3BytesDeletedReporter s3BytesDeletedReporter;
+  private static final LifecycleEventType EVENT_TYPE = LifecycleEventType.UNREFERENCED;
+  @Autowired private final S3Client s3Client;
+  @Autowired private final SentinelFilesCleaner sentinelFilesCleaner;
+  @Autowired private final S3BytesDeletedReporter s3BytesDeletedReporter;
 
   public S3PathCleaner(S3Client s3Client, SentinelFilesCleaner sentinelFilesCleaner,
       S3BytesDeletedReporter s3BytesDeletedReporter) {
     this.s3Client = s3Client;
     this.sentinelFilesCleaner = sentinelFilesCleaner;
     this.s3BytesDeletedReporter = s3BytesDeletedReporter;
+  }
+
+  @Override
+  public LifecycleEventType getLifecycleEventType() {
+    return EVENT_TYPE;
   }
 
   @Override
@@ -146,5 +156,4 @@ public class S3PathCleaner implements PathCleaner {
     String tableDirectory = "/" + tableName + "/";
     return !Strings.isNullOrEmpty(tableName) && parent.contains(tableDirectory) && !parent.endsWith("/" + tableName);
   }
-
 }

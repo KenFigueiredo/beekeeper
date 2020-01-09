@@ -16,9 +16,11 @@
 package com.expediagroup.beekeeper.cleanup.path;
 
 import com.expediagroup.beekeeper.core.model.HousekeepingPath;
+import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 
 public interface PathCleaner {
 
-  public boolean cleanupPath(HousekeepingPath housekeepingPath);
+  boolean cleanupPath(HousekeepingPath housekeepingPath);
 
+  LifecycleEventType getLifecycleEventType();
 }

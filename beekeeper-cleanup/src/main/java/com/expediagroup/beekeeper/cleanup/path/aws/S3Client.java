@@ -21,6 +21,9 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -28,13 +31,17 @@ import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
+@Component
 public class S3Client {
 
   private static final Logger log = LoggerFactory.getLogger(S3Client.class);
-  private final AmazonS3 amazonS3;
+  @Autowired private final AmazonS3 amazonS3;
   private final boolean dryRunEnabled;
 
-  public S3Client(AmazonS3 amazonS3, boolean dryRunEnabled) {
+  public S3Client(
+      AmazonS3 amazonS3,
+      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled
+  ) {
     this.amazonS3 = amazonS3;
     this.dryRunEnabled = dryRunEnabled;
   }
@@ -98,5 +105,4 @@ public class S3Client {
       return true;
     }
   }
-
 }

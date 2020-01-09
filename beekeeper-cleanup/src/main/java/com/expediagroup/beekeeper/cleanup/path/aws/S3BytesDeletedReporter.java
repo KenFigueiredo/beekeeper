@@ -21,23 +21,31 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 
+@Component
 public class S3BytesDeletedReporter {
 
   public static final String METRIC_NAME = "s3-bytes-deleted";
   public static final String DRY_RUN_METRIC_NAME = "dry-run-s3-bytes-deleted";
   private static final Logger log = LoggerFactory.getLogger(S3BytesDeletedReporter.class);
 
-  private final S3Client s3Client;
+  @Autowired private final S3Client s3Client;
   private final Map<String, Long> keyToSize = new HashMap<>();
   private final Counter counter;
 
-  public S3BytesDeletedReporter(S3Client s3Client, MeterRegistry meterRegistry, boolean dryRunEnabled) {
+  public S3BytesDeletedReporter(
+      S3Client s3Client,
+      @Autowired MeterRegistry meterRegistry,
+      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled
+  ) {
     this.s3Client = s3Client;
 
     String metricName = dryRunEnabled ? DRY_RUN_METRIC_NAME : METRIC_NAME;
@@ -71,5 +79,4 @@ public class S3BytesDeletedReporter {
     log.info("deleted {} bytes", size);
     counter.increment(size);
   }
-
 }

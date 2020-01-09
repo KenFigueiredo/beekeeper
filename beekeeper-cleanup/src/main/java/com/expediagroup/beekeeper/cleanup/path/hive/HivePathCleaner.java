@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 Expedia, Inc.
+ * Copyright (C) 2019-2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,18 +19,24 @@ import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.expediagroup.beekeeper.cleanup.path.PathCleaner;
 import com.expediagroup.beekeeper.core.model.HousekeepingPath;
+import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import com.expediagroup.beekeeper.core.monitoring.TimedTaggable;
 
 public class HivePathCleaner implements PathCleaner {
 
+  private static final LifecycleEventType EVENT_TYPE = LifecycleEventType.EXPIRED;
   private static final Logger log = LoggerFactory.getLogger(HivePathCleaner.class);
-  private final HiveClient hiveClient;
+  @Autowired private final HiveClient hiveClient;
 
-  public HivePathCleaner(HiveClient hiveClient) {
-    this.hiveClient = hiveClient;
+  HivePathCleaner(HiveClient hiveClient) { this.hiveClient = hiveClient; }
+
+  @Override
+  public LifecycleEventType getLifecycleEventType() {
+    return EVENT_TYPE;
   }
 
   @Override

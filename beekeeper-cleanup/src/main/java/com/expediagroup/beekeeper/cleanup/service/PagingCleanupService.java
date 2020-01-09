@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 Expedia, Inc.
+ * Copyright (C) 2019-2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ import static java.lang.String.format;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.EnumMap;
 import java.util.List;
 
-import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -35,6 +33,7 @@ import io.micrometer.core.annotation.Timed;
 import com.expediagroup.beekeeper.cleanup.path.PathCleaner;
 import com.expediagroup.beekeeper.core.error.BeekeeperException;
 import com.expediagroup.beekeeper.core.model.EntityHousekeepingPath;
+import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import com.expediagroup.beekeeper.core.model.PathStatus;
 import com.expediagroup.beekeeper.core.repository.HousekeepingPathRepository;
 
@@ -42,18 +41,18 @@ public class PagingCleanupService implements CleanupService {
 
   private final Logger log = LoggerFactory.getLogger(PagingCleanupService.class);
   private final HousekeepingPathRepository housekeepingPathRepository;
-  private final EnumMap<LifecycleEventType,PathCleaner> pathCleanerMap;
+  private final List<PathCleaner> pathCleaners;
   private final boolean dryRunEnabled;
   private final int pageSize;
 
   public PagingCleanupService(
-          HousekeepingPathRepository housekeepingPathRepository,
-          EnumMap<LifecycleEventType, PathCleaner> pathCleanerMap,
-          int pageSize,
-          boolean dryRunEnabled
+      HousekeepingPathRepository housekeepingPathRepository,
+      List<PathCleaner> pathCleaners,
+      int pageSize,
+      boolean dryRunEnabled
   ) {
     this.housekeepingPathRepository = housekeepingPathRepository;
-    this.pathCleanerMap = pathCleanerMap;
+    this.pathCleaners = pathCleaners;
     this.pageSize = pageSize;
     this.dryRunEnabled = dryRunEnabled;
   }
@@ -90,15 +89,18 @@ public class PagingCleanupService implements CleanupService {
 
   private void cleanupContent(EntityHousekeepingPath housekeepingPath) {
     try {
-      LifecycleEventType lifecycleType = LifecycleEventType.valueOf(housekeepingPath.getLifecycleType());
-      PathCleaner pathCleaner = pathCleanerMap.get(lifecycleType);
-      log.info("Cleaning up path \"{}\" using \"{}\"", housekeepingPath.getPath(), pathCleaner.toString());
+      for (PathCleaner cleaner : pathCleaners) {
+        if (cleaner.getLifecycleEventType() != LifecycleEventType.valueOf(housekeepingPath.getLifecycleType())) {
+          log.info("Skip deletion of path \"{}\" for cleaner:{}", housekeepingPath.getPath(), cleaner.toString());
+          continue;
+        }
 
-      if (pathCleaner.cleanupPath(housekeepingPath)) {
-        log.info("Successfully deleted \"{}\" path.", housekeepingPath.getPath());
-        updateAttemptsAndStatus(housekeepingPath, PathStatus.DELETED);
-      } else {
-        log.info("Skip deletion of path \"{}\" path", housekeepingPath.getPath());
+        if (cleaner.cleanupPath(housekeepingPath)) {
+          log.info("Successfully deleted \"{}\" path for cleaner:{}.", housekeepingPath.getPath(), cleaner.toString());
+          updateAttemptsAndStatus(housekeepingPath, PathStatus.DELETED);
+        } else {
+          log.info("Skip deletion of path \"{}\" for cleaner:{}", housekeepingPath.getPath(), cleaner.toString());
+        }
       }
     } catch (Exception e) {
       updateAttemptsAndStatus(housekeepingPath, PathStatus.FAILED);

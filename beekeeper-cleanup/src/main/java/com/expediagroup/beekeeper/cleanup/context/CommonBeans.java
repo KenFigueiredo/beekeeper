@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2019 Expedia, Inc.
+ * Copyright (C) 2019-2020 Expedia, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
  */
 package com.expediagroup.beekeeper.cleanup.context;
 
-import java.util.EnumMap;
+import java.util.List;
 
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Bean;
@@ -29,22 +30,13 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import io.micrometer.core.instrument.MeterRegistry;
-
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 import com.expediagroup.beekeeper.cleanup.path.PathCleaner;
-import com.expediagroup.beekeeper.cleanup.path.aws.S3BytesDeletedReporter;
-import com.expediagroup.beekeeper.cleanup.path.aws.S3Client;
-import com.expediagroup.beekeeper.cleanup.path.aws.S3PathCleaner;
-import com.expediagroup.beekeeper.cleanup.path.aws.S3SentinelFilesCleaner;
-import com.expediagroup.beekeeper.cleanup.path.hive.HiveClient;
-import com.expediagroup.beekeeper.cleanup.path.hive.HivePathCleaner;
 import com.expediagroup.beekeeper.cleanup.service.CleanupService;
 import com.expediagroup.beekeeper.cleanup.service.PagingCleanupService;
-import com.expediagroup.beekeeper.core.model.LifecycleEventType;
 import com.expediagroup.beekeeper.core.repository.HousekeepingPathRepository;
 
 @Configuration
@@ -53,6 +45,8 @@ import com.expediagroup.beekeeper.core.repository.HousekeepingPathRepository;
 @EntityScan(basePackages = { "com.expediagroup.beekeeper.core.model" })
 @EnableJpaRepositories(basePackages = { "com.expediagroup.beekeeper.core.repository" })
 public class CommonBeans {
+
+  @Autowired List<PathCleaner> pathCleaners;
 
   @Bean
   @Profile("default")
@@ -72,55 +66,49 @@ public class CommonBeans {
         .build();
   }
 
-  @Bean
-  public S3Client s3Client(AmazonS3 amazonS3, @Value("${properties.dry-run-enabled}") boolean dryRunEnabled) {
-    return new S3Client(amazonS3, dryRunEnabled);
-  }
+//  @Bean
+//  public S3Client s3Client(AmazonS3 amazonS3, @Value("${properties.dry-run-enabled}") boolean dryRunEnabled) {
+//    return new S3Client(amazonS3, dryRunEnabled);
+//  }
+
+//  @Bean
+//  S3BytesDeletedReporter s3BytesDeletedReporter(S3Client s3Client, MeterRegistry meterRegistry,
+//      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled) {
+//    return new S3BytesDeletedReporter(s3Client, meterRegistry, dryRunEnabled);
+//  }
+
+//  @Bean
+//  public S3PathCleaner s3PathCleaner(S3Client s3Client, S3BytesDeletedReporter s3BytesDeletedReporter) {
+//    return new S3PathCleaner(s3Client, new S3SentinelFilesCleaner(s3Client), s3BytesDeletedReporter);
+//  }
 
   @Bean
-  S3BytesDeletedReporter s3BytesDeletedReporter(S3Client s3Client, MeterRegistry meterRegistry,
-      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled) {
-    return new S3BytesDeletedReporter(s3Client, meterRegistry, dryRunEnabled);
+  public HiveMetaStoreClient hiveMetaStoreClient() throws MetaException {
+    return new HiveMetaStoreClient(new HiveConf());
   }
 
-  @Bean
-  public S3PathCleaner s3PathCleaner(S3Client s3Client, S3BytesDeletedReporter s3BytesDeletedReporter) {
-    return new S3PathCleaner(s3Client, new S3SentinelFilesCleaner(s3Client), s3BytesDeletedReporter);
-  }
+//  @Bean
+//  public HiveClient hiveClient(
+//      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled
+//  ) throws MetaException {
+//    HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(new HiveConf());
+//    return new HiveClient(hiveMetaStoreClient, dryRunEnabled);
+//  }
 
-  @Bean
-  public HiveClient hiveClient(
-      @Value("${properties.dry-run-enabled}") boolean dryRunEnabled
-  ) throws MetaException {
-    HiveMetaStoreClient hiveMetaStoreClient = new HiveMetaStoreClient(new HiveConf());
-    return new HiveClient(hiveMetaStoreClient, dryRunEnabled);
-  }
-
-  @Bean
-  public HivePathCleaner hivePathCleaner(
-      HiveClient hiveClient
-  ) {
-    return new HivePathCleaner(hiveClient);
-  }
-
-  @Bean
-  EnumMap<LifecycleEventType, PathCleaner> pathCleanerMap(
-      S3PathCleaner s3PathCleaner,
-      HivePathCleaner hivePathCleaner
-  ) {
-    EnumMap<LifecycleEventType, PathCleaner> pcMap = new EnumMap<>(LifecycleEventType.class);
-    pcMap.put(LifecycleEventType.UNREFERENCED, s3PathCleaner);
-    pcMap.put(LifecycleEventType.EXPIRED, hivePathCleaner);
-    return pcMap;
-  }
+//  @Bean
+//  public HivePathCleaner hivePathCleaner(
+//      HiveClient hiveClient
+//  ) {
+//    return new HivePathCleaner(hiveClient);
+//  }
 
   @Bean
   CleanupService cleanupService(
       HousekeepingPathRepository repository,
-      EnumMap<LifecycleEventType, PathCleaner> pathCleanerMap,
+      List<PathCleaner> pathCleaners,
       @Value("${properties.cleanup-page-size}") int pageSize,
       @Value("${properties.dry-run-enabled}") boolean dryRunEnabled
   ) {
-    return new PagingCleanupService(repository, pathCleanerMap, pageSize, dryRunEnabled);
+    return new PagingCleanupService(repository, pathCleaners, pageSize, dryRunEnabled);
   }
 }

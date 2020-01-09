@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -25,7 +26,8 @@
 
   <scm>
     <connection>scm:git:https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/ExpediaGroup/beekeeper.git</connection>
-    <developerConnection>scm:git:https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/ExpediaGroup/beekeeper.git</developerConnection>
+    <developerConnection>scm:git:https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/ExpediaGroup/beekeeper.git
+    </developerConnection>
     <url>https://github.com/ExpediaGroup/beekeeper</url>
     <tag>HEAD</tag>
   </scm>
@@ -34,9 +36,12 @@
     <apache.commons.lang3>3.0</apache.commons.lang3>
     <assertj.version>3.12.2</assertj.version>
     <awaitility.version>3.1.6</awaitility.version>
+    <beeju.version>3.0.1</beeju.version>
     <docker.registry>expediagroup</docker.registry>
+    <hadoop.version>2.9.1</hadoop.version>
+    <hive.version>2.3.6</hive.version>
     <jdk.version>11</jdk.version>
-    <junit.jupiter.version>5.4.1</junit.jupiter.version>
+    <junit.jupiter.version>5.4.2</junit.jupiter.version>
     <logback.version>1.2.3</logback.version>
     <maven.assembly.plugin.version>3.1.0</maven.assembly.plugin.version>
     <mockito.version>2.25.1</mockito.version>
@@ -91,8 +96,38 @@
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>junit-jupiter-api</artifactId>
       <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-params</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.vintage</groupId>
+      <artifactId>junit-vintage-engine</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-migrationsupport</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-commons</artifactId>
+      <version>1.4.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
